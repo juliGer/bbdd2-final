@@ -25,7 +25,8 @@ SECRET_KEY = 'django-insecure-)w3rbd5&bl13q5c23&=rd24bm(@j93#^ak^y#d5ev*^93g9(47
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '*']
+CORS_ALLOW_ALL_ORIGINS = True
 
 
 # Application definition
@@ -37,6 +38,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'django_extensions',
+    'app',
+    'corsheaders'
 ]
 
 MIDDLEWARE = [
@@ -47,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware'
 ]
 
 ROOT_URLCONF = 'bbdd2.urls'
@@ -75,8 +81,16 @@ WSGI_APPLICATION = 'bbdd2.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'djongo',
+        'NAME': 'bbdd2',
+    },
+    'sql': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'bbdd2',
+        'HOST': '0.tcp.ngrok.io',
+        'PORT': '18333',
+        'USER': 'postgres',
+        'PASSWORD': 'postgres',
     }
 }
 
