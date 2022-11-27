@@ -3,7 +3,7 @@ from djongo import models
 
 
 class FlightPrice(models.Model):
-    legId = models.TextField()
+    legId = models.TextField(db_index=True)
     searchDate = models.TextField(null=True)
     flightDate = models.TextField(null=True)
     startingAirport = models.TextField(null=True)
