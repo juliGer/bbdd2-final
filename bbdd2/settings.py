@@ -83,11 +83,15 @@ DATABASES = {
     'mongo': {
         'ENGINE': 'djongo',
         'NAME': 'bbdd2',
+        'CLIENT': {
+                'host': 'mongo',
+                'port': 27017
+        }
     },
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'bbdd2',
-        'HOST': '127.0.0.1',
+        'HOST': 'db',
         'PORT': '5432',
         'USER': 'postgres',
         'PASSWORD': 'postgres',

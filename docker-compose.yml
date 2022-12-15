@@ -3,8 +3,7 @@ version: "3.8"
 services:
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
-    restart: always
+    entrypoint: ./entrypoint.sh
     volumes:
       - .:/web_django
     ports:
@@ -15,8 +14,11 @@ services:
     image: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: always
     ports:
     - "5532:5432"
+  mongo:
+    image: mongo
+    ports:
+    - "27020:27017"
 volumes:
   postgres_data:

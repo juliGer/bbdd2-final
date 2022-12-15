@@ -3,7 +3,7 @@ import json
 from time import time
 from django.db import connections
 from django.db.models import DateField, ExpressionWrapper, Max, FloatField, F
-from django.db.models.functions import Cast
+from django.db.models.functions import Cast, Extract
 import pandas as pd
 
 
@@ -46,17 +46,18 @@ class FlightPriceViewSet(viewsets.ModelViewSet):
     @action(methods=['GET'], detail=False, url_name='mongo-date-diff', url_path='mongo-date-diff')
     def mongo_date_diff(self, request):
         limit = int(request.query_params.get('limit', 10000000))
-        db_handle, myclient = get_db_handle('bbdd2', 'localhost', '27017')
+        db_handle, myclient = get_db_handle('bbdd2', 'mongo', '27017')
         mycol = get_collection_handle(
             db_handle=db_handle, collection_name='app_flightprice')
 
-        list(mycol.aggregate(
+        data = list(mycol.aggregate(
             [
                 {
                     '$project': {
                         '_id': 0,
-                        'id': 1,
-                        'result': {
+                        'searchDate': 1,
+                        'flightDate': 1,
+                        'diffBetweenSearchDateAndFlightDate': {
                             '$dateDiff': {
                                 'startDate': {
                                     '$dateFromString': {
@@ -77,21 +78,23 @@ class FlightPriceViewSet(viewsets.ModelViewSet):
             ]
         ))
 
-        return Response({'count': limit})
+        return Response({'count': limit, 'data': data[:10]})
 
     @action(methods=['GET'], detail=False, url_name='mongo-max-date-diff', url_path='mongo-max-date-diff')
-    def mongo_date_diff(self, request):
+    def mongo_max_date_diff(self, request):
         limit = int(request.query_params.get('limit', 10000000))
-        db_handle, myclient = get_db_handle('bbdd2', 'localhost', '27017')
+        db_handle, myclient = get_db_handle('bbdd2', 'mongo', '27017')
         mycol = get_collection_handle(
             db_handle=db_handle, collection_name='app_flightprice')
 
-        list(mycol.aggregate(
+        data = mycol.aggregate(
             [
                 {
                     '$project': {
                         '_id': 0,
-                        'result': {
+                        'searchDate': 1,
+                        'flightDate': 1,
+                        'maxDiffBetweenSearchDateAndFlightDate': {
                             '$dateDiff': {
                                 'startDate': {
                                     '$dateFromString': {
@@ -113,28 +116,30 @@ class FlightPriceViewSet(viewsets.ModelViewSet):
                     "$group": {
                         "_id": None,
                         "max": {
-                            "$max": "$result"
+                            "$max": "$maxDiffBetweenSearchDateAndFlightDate"
                         }
                     }
                 },
             ]
-        ))
+        )
 
-        return Response({'count': limit})
+        return Response({'count': limit, 'data': data})
 
     @action(methods=['GET'], detail=False, url_name='mongo-average-tax', url_path='mongo-average-tax')
     def mongo_average_tax(self, request):
         limit = int(request.query_params.get('limit', 10000000))
-        db_handle, myclient = get_db_handle('bbdd2', 'localhost', '27017')
+        db_handle, myclient = get_db_handle('bbdd2', 'mongo', '27017')
         mycol = get_collection_handle(
             db_handle=db_handle, collection_name='app_flightprice')
 
-        list(mycol.aggregate(
+        data = list(mycol.aggregate(
             [
                 {
                     '$project': {
                         '_id': 0,
-                        'porcentaje_impuestos': {
+                        'searchDate': 1,
+                        'flightDate': 1,
+                        'avarateTax': {
                             '$multiply': [
                                 {
                                     '$divide': [
@@ -149,12 +154,12 @@ class FlightPriceViewSet(viewsets.ModelViewSet):
             ]
         ))
 
-        return Response({'count': limit})
+        return Response({'count': limit, 'data': data[:10]})
 
     @action(methods=['GET'], detail=False, url_name='mongo-search-between-dates', url_path='mongo-search-between-dates')
     def mongo_search_between_dates(self, request):
         limit = int(request.query_params.get('limit', 10000000))
-        db_handle, myclient = get_db_handle('bbdd2', 'localhost', '27017')
+        db_handle, myclient = get_db_handle('bbdd2', 'mongo', '27017')
         mycol = get_collection_handle(
             db_handle=db_handle, collection_name='app_flightprice')
         start_date = request.query_params.get('start_date')
@@ -163,31 +168,35 @@ class FlightPriceViewSet(viewsets.ModelViewSet):
         if not start_date or not end_date:
             Response(data={'Debe ingresar las fechas a buscar'}, status=status.HTTP_400_BAD_REQUEST)
 
-        list(mycol.find({'flightDate': {'$gte': start_date, '$lt': end_date}}, {'_id': 0}))
-        return Response({'count': limit})
+        data = list(mycol.find({'flightDate': {'$gte': start_date, '$lt': end_date}},
+                    {'_id': 0, 'searchDate': 1, 'flightDate': 1}).limit(limit))
+        return Response({'count': limit, 'data': data[:10]})
 
     @action(methods=['GET'], detail=False, url_name='postgres-date-diff', url_path='postgres-date-diff')
     def postgres_date_diff(self, request):
         limit = int(request.query_params.get('limit', 10000000))
-        list(FlightPrice.objects.annotate(result=ExpressionWrapper(
-            Cast('flightDate', DateField())-Cast('searchDate', DateField()), output_field=DateField())).values('id', 'result')[:limit])
-        return Response({'count': limit})
+        data = list(FlightPrice.objects.annotate(diff=ExpressionWrapper(
+            Cast('flightDate', DateField())-Cast('searchDate', DateField()), output_field=DateField()))
+            .annotate(date_diff=Extract('diff', 'day'))
+            .values('searchDate', 'flightDate', 'date_diff')[:limit])
+
+        return Response({'count': limit, 'data': data[:10]})
 
     @action(methods=['GET'], detail=False, url_name='postgres-max-date-diff', url_path='postgres-max-date-diff')
     def postgres_max_date_diff(self, request):
         limit = int(request.query_params.get('limit', 10000000))
-        FlightPrice.objects.annotate(result=ExpressionWrapper(
-            Cast('flightDate', DateField())-Cast('searchDate', DateField()), output_field=DateField()))[:limit].values('result').aggregate(Max('result'))
-        return Response({'count': limit})
+        data = FlightPrice.objects.annotate(date_diff=ExpressionWrapper(
+            Cast('flightDate', DateField())-Cast('searchDate', DateField()), output_field=DateField()))[:limit].values('date_diff').aggregate(Max('date_diff'))
+        return Response({'count': limit, 'data': data['date_diff__max'].days})
 
     @action(methods=['GET'], detail=False, url_name='postgres-average-tax', url_path='postgres-average-tax')
     def postgres_average_tax(self, request):
         limit = int(request.query_params.get('limit', 10000000))
-        list(FlightPrice.objects.annotate(porcentaje_impuestos=ExpressionWrapper(
-            ((F('totalFare')-F('baseFare')) / F('baseFare')) * 100, output_field=FloatField())).values('porcentaje_impuestos')[:limit])
-        return Response({'count': limit})
+        data = list(FlightPrice.objects.annotate(average_tax=ExpressionWrapper(
+            ((F('totalFare')-F('baseFare')) / F('baseFare')) * 100, output_field=FloatField())).values('average_tax', 'searchDate', 'flightDate')[:limit])
+        return Response({'count': limit, 'data': data[:10]})
 
-    @action(methods=['GET'], detail=False, url_name='search-between-dates', url_path='search-between-dates')
+    @action(methods=['GET'], detail=False, url_name='postgres-search-between-dates', url_path='postgres-search-between-dates')
     def postgres_search_between_dates(self, request):
         limit = int(request.query_params.get('limit', 10000000))
         start_date = request.query_params.get('start_date')
@@ -196,5 +205,6 @@ class FlightPriceViewSet(viewsets.ModelViewSet):
         if not start_date or not end_date:
             Response(data={'Debe ingresar las fechas a buscar'}, status=status.HTTP_400_BAD_REQUEST)
 
-        list(FlightPrice.objects.filter(searchDate__gte=start_date, flightDate__lt=end_date))
-        return Response({'count': limit})
+        data = list(FlightPrice.objects.filter(searchDate__gte=start_date,
+                    flightDate__lt=end_date).values('searchDate', 'flightDate')[:limit])
+        return Response({'count': limit, 'data': data[:10]})
