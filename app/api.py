@@ -1,10 +1,12 @@
 from datetime import date
 import json
 from time import time
+import uuid
 from django.db import connections
 from django.db.models import DateField, ExpressionWrapper, Max, FloatField, F
 from django.db.models.functions import Cast, Extract
 import pandas as pd
+from pymongo.errors import DuplicateKeyError
 
 
 from rest_framework import status, views, viewsets
@@ -29,12 +31,18 @@ class UploadViewSet(views.APIView):
             return Response(data="Debe ingresar un csv", status=status.HTTP_400_BAD_REQUEST)
 
         params = {'filepath_or_buffer': file, 'chunksize': 100000}
+        use_mongo = request.query_params.get('use_mongo', False)
+
+        if use_mongo:
+            db_handle, myclient = get_db_handle('bbdd2', 'mongo', '27017')
+            mycol = get_collection_handle(db_handle=db_handle, collection_name='app_flightprice')
+
         for data in pd.read_csv(**params):
-            # data = self.date_string_to_date(data)
-            # mycol.insert_many(json.loads(data.to_json(orient='records')))
-            for objects in json.loads(data.to_json(orient='records')):
-                FlightPrice.objects.create(**objects)
-                FlightPrice.objects.using('mongo').create(**objects)
+            for elem in json.loads(data.to_json(orient='records')):
+                if use_mongo:
+                    mycol.insert_one({'id': str(uuid.uuid4()), **elem})
+                    continue
+                FlightPrice.elem.create(**elem)
         return Response(data={}, status=status.HTTP_200_OK)
 
 

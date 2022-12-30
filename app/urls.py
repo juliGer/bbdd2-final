@@ -8,7 +8,7 @@ router = DefaultRouter()
 router.register(r'flight-prices', FlightPriceViewSet)
 
 urlpatterns = [
-    path('upload-file', UploadViewSet.as_view(), name='upload-file')
+    path('upload-file/', UploadViewSet.as_view(), name='upload-file')
 ]
 
 urlpatterns += router.urls
