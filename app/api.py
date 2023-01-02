@@ -42,7 +42,7 @@ class UploadViewSet(views.APIView):
                 if use_mongo:
                     mycol.insert_one({'id': str(uuid.uuid4()), **elem})
                     continue
-                FlightPrice.elem.create(**elem)
+                FlightPrice.objects.create(**elem)
         return Response(data={}, status=status.HTTP_200_OK)
 
 
@@ -65,7 +65,7 @@ class FlightPriceViewSet(viewsets.ModelViewSet):
                         '_id': 0,
                         'searchDate': 1,
                         'flightDate': 1,
-                        'diffBetweenSearchDateAndFlightDate': {
+                        'date_diff': {
                             '$dateDiff': {
                                 'startDate': {
                                     '$dateFromString': {
@@ -147,7 +147,7 @@ class FlightPriceViewSet(viewsets.ModelViewSet):
                         '_id': 0,
                         'searchDate': 1,
                         'flightDate': 1,
-                        'avarateTax': {
+                        'averageTax': {
                             '$multiply': [
                                 {
                                     '$divide': [
@@ -195,7 +195,7 @@ class FlightPriceViewSet(viewsets.ModelViewSet):
         limit = int(request.query_params.get('limit', 10000000))
         data = FlightPrice.objects.annotate(date_diff=ExpressionWrapper(
             Cast('flightDate', DateField())-Cast('searchDate', DateField()), output_field=DateField()))[:limit].values('date_diff').aggregate(Max('date_diff'))
-        return Response({'count': limit, 'data': data['date_diff__max'].days})
+        return Response({'count': limit, 'max': data['date_diff__max'].days})
 
     @action(methods=['GET'], detail=False, url_name='postgres-average-tax', url_path='postgres-average-tax')
     def postgres_average_tax(self, request):
